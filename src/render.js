@@ -1,9 +1,7 @@
 // Renders a note with Obsidian's own renderer, prepares the page for print, and prints it with Chromium's
 // tagged-PDF output switched on. Returns the raw tagged PDF and what the fix-up needs to know about links.
-const { MarkdownRenderer, Component } = require('obsidian');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
+// Everything it reads or writes goes through the vault API, never the Node file-system module.
+const { MarkdownRenderer, Component, TFile, arrayBufferToBase64, normalizePath } = require('obsidian');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -20,6 +18,35 @@ async function settle(el, maxMs = 15000) {
       await sleep(100);
     }
   } finally { mo.disconnect(); }
+}
+
+// The vault path of an absolute file path, or null when the file is outside the vault.
+function vaultRelative(app, abs) {
+  const base = app.vault.adapter.getBasePath ? app.vault.adapter.getBasePath() : null;
+  if (!base || !abs) return null;
+  const slash = (x) => x.replace(/\\/g, '/').replace(/\/+$/, '');
+  const b = slash(base), a = slash(abs);
+  const win = /^[a-zA-Z]:\//.test(b);
+  const inside = win ? a.toLowerCase().startsWith(b.toLowerCase() + '/') : a.startsWith(b + '/');
+  return inside ? normalizePath(a.slice(b.length + 1)) : null;
+}
+
+// Images from the vault are embedded as data so the print window needs nothing from the app.
+async function embedImages(app, el) {
+  for (const img of el.querySelectorAll('img')) {
+    const src = img.getAttribute('src') || '';
+    const m = src.match(/^app:\/\/[^/]+\/(.*?)(\?|$)/);
+    if (!m) continue;
+    try {
+      let p = decodeURIComponent(m[1]);
+      if (!/^[a-zA-Z]:[\\/]/.test(p) && !p.startsWith('/')) p = '/' + p; // app://<id>/home/... on macOS and Linux
+      const rel = vaultRelative(app, p);
+      const f = rel && app.vault.getAbstractFileByPath(rel);
+      if (!(f instanceof TFile)) throw new Error('not a file in this vault');
+      const mime = { svg: 'image/svg+xml', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', avif: 'image/avif', bmp: 'image/bmp' }[f.extension.toLowerCase()];
+      if (mime) img.setAttribute('src', `data:${mime};base64,${arrayBufferToBase64(await app.vault.readBinary(f))}`);
+    } catch (e) { console.warn('Accessible PDF Export: image not embedded', src, e); }
+  }
 }
 
 function prepare(el) {
@@ -45,19 +72,6 @@ function prepare(el) {
   }
   // Header cells name their direction for screen readers.
   for (const th of el.querySelectorAll('thead th')) if (!th.hasAttribute('scope')) th.setAttribute('scope', 'col');
-  // Images from the vault are embedded as data so the print window needs nothing from the app.
-  for (const img of el.querySelectorAll('img')) {
-    const src = img.getAttribute('src') || '';
-    const m = src.match(/^app:\/\/[^/]+\/(.*?)(\?|$)/);
-    if (!m) continue;
-    try {
-      let p = decodeURIComponent(m[1]);
-      if (!/^[a-zA-Z]:[\\/]/.test(p) && !p.startsWith('/')) p = '/' + p; // app://<id>/home/... on macOS and Linux
-      const ext = p.split('.').pop().toLowerCase();
-      const mime = { svg: 'image/svg+xml', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', avif: 'image/avif', bmp: 'image/bmp' }[ext];
-      if (mime) img.setAttribute('src', `data:${mime};base64,${fs.readFileSync(p).toString('base64')}`);
-    } catch (e) { console.warn('Accessible PDF Export: image not embedded', src, e); }
-  }
   // Link texts, for the descriptions the PDF needs on each link.
   const links = new Map();
   for (const a of el.querySelectorAll('a[href]')) {
@@ -84,6 +98,7 @@ async function renderNote(app, file, opt) {
   try {
     await MarkdownRenderer.render(app, md, el, file.path, comp);
     await settle(el);
+    await embedImages(app, el);
     links = prepare(el);
     const bodyCls = document.body.className.replace(/\btheme-dark\b/, 'theme-light');
     const title = opt.includeTitle ? `<h1>${esc(opt.title)}</h1>` : '';
@@ -95,17 +110,20 @@ async function renderNote(app, file, opt) {
   return { html, links };
 }
 
-async function printTagged(html, pageSize) {
+// The page is staged as a hidden file in the plugin's own folder (through the vault adapter), loaded, and removed.
+async function printTagged(app, pluginDir, html, pageSize) {
   const { remote } = require('electron');
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pdfua-'));
-  const file = path.join(dir, 'note.html');
-  fs.writeFileSync(file, html);
+  const adapter = app.vault.adapter;
+  const rel = normalizePath(`${pluginDir}/.export-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.html`);
+  const drop = async () => { try { if (await adapter.exists(rel)) await adapter.remove(rel); } catch (e) { /* already gone */ } };
+  await adapter.write(rel, html);
   const w = new remote.BrowserWindow({ show: false, webPreferences: { javascript: false } });
   try {
-    await w.loadFile(file);
+    await w.loadFile(adapter.getFullPath(rel));
+    await drop();
     const buf = await w.webContents.printToPDF({ generateTaggedPDF: true, generateDocumentOutline: true, pageSize, printBackground: true });
     return Buffer.from(buf);
-  } finally { w.destroy(); fs.rmSync(dir, { recursive: true, force: true }); }
+  } finally { w.destroy(); await drop(); }
 }
 
-module.exports = { renderNote, printTagged };
+module.exports = { renderNote, printTagged, vaultRelative };

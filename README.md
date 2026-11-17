@@ -9,7 +9,7 @@ Obsidian's built-in **Export to PDF** produces untagged PDFs: no structure, no d
 - Open a note, then run **Accessible PDF Export: Export current note to accessible PDF** from the command palette.
 - Or right-click a note in the file explorer and choose the export item.
 
-The PDF is saved next to the note, with the same name. Exporting again replaces a PDF this plugin made. If a different file already has that name, it is left alone and the export is saved as `Note (accessible).pdf`. You can choose to be asked where to save each time instead.
+The PDF is saved next to the note, with the same name. Exporting again replaces a PDF this plugin made. If a different file already has that name, it is left alone and the export is saved as `Note (accessible).pdf`. You can choose to be asked where to save each time instead. The PDF then goes in the folder you pick, which must be inside this vault.
 
 ## What the PDF contains
 
@@ -36,7 +36,7 @@ A passing check is not the same as a good reading experience. We have not yet te
 - **Page size:** A4, Letter or Legal.
 - **Document language:** the language code screen readers use, such as `en`, `de` or `pt-BR`. A `lang` or `language` property in the note takes precedence.
 - **Note name as title:** print the note name as the first heading.
-- **Where to save:** next to the note, or ask each time.
+- **Where to save:** next to the note, or ask each time (a folder inside this vault).
 
 ## Get good results
 
@@ -48,6 +48,7 @@ A passing check is not the same as a good reading experience. We have not yet te
 
 - Desktop only. Tested on Obsidian 1.14.4 for Linux. Windows and macOS have not been tested yet.
 - One note at a time. No folder or vault export.
+- While it exports, the plugin writes the page it prints as a hidden file in its own folder, `.obsidian/plugins/accessible-pdf-export/`, and deletes it as soon as the page has loaded.
 - Not yet tested on notes with math, embedded notes beyond simple cases, or Mermaid diagrams. If the vault has not allowed Mermaid, the diagram source prints as code.
 - The PDF uses Obsidian's print styles and your theme's colours. Check contrast if your theme is dark or low-contrast.
 - PDF/UA-1 covers the file's structure. It does not check whether your image descriptions, link text or headings make sense; that part is yours.

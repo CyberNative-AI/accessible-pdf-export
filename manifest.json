@@ -1,7 +1,7 @@
 {
   "id": "accessible-pdf-export",
   "name": "Accessible PDF Export",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "minAppVersion": "1.14.4",
   "description": "Export notes as tagged PDFs built to pass PDF/UA-1 checks, so screen readers get headings, lists, tables, links and image descriptions.",
   "author": "CyberNative AI LLC",

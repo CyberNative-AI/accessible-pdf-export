@@ -1,5 +1,5 @@
 const { Plugin, Notice, PluginSettingTab, Setting, TFile, normalizePath } = require('obsidian');
-const { renderNote, printTagged } = require('./render');
+const { renderNote, printTagged, vaultRelative } = require('./render');
 const { fixup, CREATOR_MARK } = require('./fixup');
 
 const DEFAULTS = { pageSize: 'A4', lang: 'en', includeTitle: true, saveTo: 'next' };
@@ -52,7 +52,7 @@ class AccessiblePdfPlugin extends Plugin {
   async buildPdf(file) {
     const title = file.basename; const lang = this.languageFor(file);
     const { html, links } = await renderNote(this.app, file, { title, lang, includeTitle: this.settings.includeTitle });
-    const raw = await printTagged(html, this.settings.pageSize);
+    const raw = await printTagged(this.app, this.manifest.dir, html, this.settings.pageSize);
     return fixup(raw, { title, lang, links });
   }
 
@@ -60,16 +60,22 @@ class AccessiblePdfPlugin extends Plugin {
     const notice = new Notice(`Exporting ${file.basename} to accessible PDF…`, 0);
     try {
       const { pdf } = await this.buildPdf(file);
+      const data = pdf.buffer.slice(pdf.byteOffset, pdf.byteOffset + pdf.byteLength);
       let where;
       if (this.settings.saveTo === 'ask') {
         const { remote } = require('electron');
         const base = this.app.vault.adapter.getBasePath ? this.app.vault.adapter.getBasePath() : '';
-        const r = await remote.dialog.showSaveDialog({ defaultPath: require('path').join(base, (file.parent ? file.parent.path : ''), file.basename + '.pdf'), filters: [{ name: 'PDF', extensions: ['pdf'] }] });
+        const r = await remote.dialog.showSaveDialog({ defaultPath: [base, file.parent ? file.parent.path : '', file.basename + '.pdf'].filter((x) => x && x !== '/').join(base.includes('\\') ? '\\' : '/'), filters: [{ name: 'PDF', extensions: ['pdf'] }] });
         if (r.canceled || !r.filePath) { notice.hide(); return; }
-        require('fs').writeFileSync(r.filePath, pdf); where = r.filePath;
+        // Saved through the vault, so only a folder inside this vault can be chosen.
+        const rel = vaultRelative(this.app, r.filePath);
+        if (!rel) { notice.hide(); new Notice('Choose a folder inside this vault. Accessible PDF Export saves only inside the vault.', 10000); return; }
+        const existing = this.app.vault.getAbstractFileByPath(rel);
+        if (existing && !(existing instanceof TFile)) throw new Error(`${rel} is a folder`);
+        if (existing) await this.app.vault.modifyBinary(existing, data); else await this.app.vault.createBinary(rel, data);
+        where = rel;
       } else {
         const { path: p, existing } = await savePlan(this.app.vault, file);
-        const data = pdf.buffer.slice(pdf.byteOffset, pdf.byteOffset + pdf.byteLength);
         if (existing) await this.app.vault.modifyBinary(existing, data); else await this.app.vault.createBinary(p, data);
         where = p;
       }
@@ -95,7 +101,7 @@ class AccessiblePdfSettings extends PluginSettingTab {
       .addText((t) => t.setPlaceholder('en').setValue(s.lang).onChange((v) => { if (!v || LANG_RE.test(v.trim())) { s.lang = v.trim() || 'en'; save(); } }));
     new Setting(containerEl).setName('Note name as title').setDesc('Print the note name as the first heading.')
       .addToggle((t) => t.setValue(s.includeTitle).onChange((v) => { s.includeTitle = v; save(); }));
-    new Setting(containerEl).setName('Where to save').addDropdown((d) => d.addOptions({ next: 'Next to the note', ask: 'Ask each time' })
+    new Setting(containerEl).setName('Where to save').addDropdown((d) => d.addOptions({ next: 'Next to the note', ask: 'Ask each time (a folder in this vault)' })
       .setValue(s.saveTo).onChange((v) => { s.saveTo = v; save(); }));
   }
 }
