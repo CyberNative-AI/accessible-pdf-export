@@ -54,7 +54,9 @@ A passing check is not the same as a good reading experience. We have not yet te
 
 ## Privacy
 
-No network requests. No telemetry. No account. The plugin reads the note and its images from your vault and writes one PDF file to the folder you choose. Nothing leaves your device.
+No telemetry. No account. The plugin has no server of its own and does not upload your notes. It reads the note and its images from your vault and writes one PDF file to the folder you choose.
+
+The export renders your note the way Obsidian shows it. If the note or your theme uses images, fonts or other content from the web, such as an embedded video, the export loads them too, and the sites that host them see that request, as they do when Obsidian shows the note.
 
 ## Install
 
