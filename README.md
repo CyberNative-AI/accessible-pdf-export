@@ -31,6 +31,24 @@ We exported 20 public notes from the Obsidian help and developer docs (headings,
 
 A passing check is not the same as a good reading experience. We have not yet tested these PDFs with a screen reader.
 
+## Check the reading order
+
+Download the [example PDF](./examples/reading-order.pdf?raw=true), exported with Accessible PDF Export 0.1.1 on Linux. Open a terminal in the download folder with [Poppler's pdfinfo](https://manpages.debian.org/trixie/poppler-utils/pdfinfo.1.en.html#OPTIONS) installed (the `poppler-utils` package on Debian). Run:
+
+```sh
+pdfinfo -struct-text "reading-order.pdf"
+```
+
+Look for these entries in order:
+
+1. `H1` "Reading order example"
+2. `H2` "Library hours"
+3. `Table` with "Day" and "Opens" as headers, then "Tuesday" and "Thursday" as the rows
+4. `H2` "Further reading"
+5. `Link` "PDF reading order guide"
+
+For your own export, replace `reading-order.pdf` with its filename. Follow the tag tree from top to bottom and compare the headings, table rows and links with the order you intended.
+
 ## Settings
 
 - **Page size:** A4, Letter or Legal.
