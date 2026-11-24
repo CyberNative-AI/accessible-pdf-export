@@ -49,6 +49,8 @@ Look for these entries in order:
 
 For your own export, replace `reading-order.pdf` with its filename. Follow the tag tree from top to bottom and compare the headings, table rows and links with the order you intended.
 
+On Windows, open the example PDF in Adobe Acrobat Reader 26.3.22110.0 with NVDA 2026.2 running. With focus in the PDF, press `Ctrl+Home`, then press `Down Arrow` repeatedly through the Library hours table. In our scripted check of this sample, NVDA announced Tuesday before "Opens, column 2, 10:00" and Thursday before "Opens, column 2, 12:00". Listen for the day before each time. The time cell announces the column header and time.
+
 ## Settings
 
 - **Page size:** A4, Letter or Legal.
