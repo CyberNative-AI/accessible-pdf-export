@@ -15,7 +15,7 @@ The PDF is saved next to the note, with the same name. Exporting again replaces 
 
 - Headings, paragraphs, lists, tables (with header cells), code blocks, quotes and callouts, tagged in reading order.
 - Headings in order, starting at level 1. With **Note name as title** on, the note name is the first heading.
-- Links to websites and to headings in the same note, each with a description. Links to other notes in the vault become plain text, because they point nowhere outside Obsidian.
+- Links to websites, each with a description. In version 0.1.1, Obsidian heading links such as `[[#Installation]]` appear as plain text. Links to other notes in the vault also appear as plain text.
 - Images from the vault, embedded in the file, with the description you wrote in the note.
 - Document title, language and the PDF/UA-1 identifier in the file's metadata.
 - Backgrounds, borders and other decoration marked so screen readers skip them.
